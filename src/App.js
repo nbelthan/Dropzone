@@ -346,7 +346,7 @@ function App() {
                  <button
                     onClick={() => setIsAdvancedMode(!isAdvancedMode)}
                     title={isAdvancedMode ? "Switch to Basic Mode (Sliders)" : "Switch to Advanced Mode (Table)"}
-                    className={`flex items-center px-2 py-1 rounded text-xs transition-colors ${isAdvancedMode ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}
+                    className={`flex items-center px-2 py-1 rounded text-xs transition-colors ${isAdvancedMode ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}
                  >
                     {isAdvancedMode ? <Sliders size={14} className="mr-1"/> : <Settings2 size={14} className="mr-1"/>}
                     {isAdvancedMode ? 'Switch to Basic' : 'Switch to Advanced'}
