@@ -141,6 +141,16 @@ const ActivityInputTable = ({ activities, setActivities }) => {
     );
 };
 
+// Helper to generate unique IDs for default activities on each render/reset
+const generateDefaultActivities = () => [
+    // Update defaults: weight=1, userMetric=1, specific totalMetrics
+    { id: generateId(), type: 'Transactions', userMetric: '1', unit: 'tx', totalMetric: '100000000', weight: 1.0 },          // 100 Million
+    { id: generateId(), type: 'Liquidity Provision', userMetric: '1', unit: 'USD', totalMetric: '100000000', weight: 1.0 },     // 100 Million
+    { id: generateId(), type: 'Staking', userMetric: '1', unit: 'tokens', totalMetric: '100000000', weight: 1.0 },         // 100 Million
+    { id: generateId(), type: 'Governance Participation', userMetric: '1', unit: 'votes', totalMetric: '100000', weight: 1.0 },  // 100 Thousand
+    { id: generateId(), type: 'Kaito Yaps', userMetric: '1', unit: 'yaps', totalMetric: '100000', weight: 1.0 },      // 100 Thousand
+];
+
 function App() {
   const [activeTab, setActiveTab] = useState('protocol');
   const [isAdvancedMode, setIsAdvancedMode] = useState(false); // <<< ADVANCED MODE STATE
@@ -148,6 +158,7 @@ function App() {
   // --- State for Value Estimation --- (Common to both modes)
   const [airdropPercentage, setAirdropPercentage] = useState(7.5); // 1-30%
   const [fdv, setFdv] = useState(5 * 1e9); // 1B - 50B USD
+  const [totalParticipants, setTotalParticipants] = useState(100000); // <<< NEW STATE (Default: 100k)
 
   // --- State for Basic Mode --- <<< REINTRODUCED
   const [basicTotalActivities, setBasicTotalActivities] = useState(1.5 * 1e6); // 100K - 100M
@@ -155,20 +166,12 @@ function App() {
   const [basicActivityWeight, setBasicActivityWeight] = useState(1.0); // 0.5x - 3x
 
   // --- State for Advanced Mode --- (Activities Array Only)
-  const defaultAdvancedActivities = [
-      { id: generateId(), type: 'Transactions', userMetric: '', unit: 'tx', totalMetric: '', weight: 1.0 },
-      { id: generateId(), type: 'Liquidity Provision', userMetric: '', unit: 'USD', totalMetric: '', weight: 1.5 },
-      { id: generateId(), type: 'Staking', userMetric: '', unit: 'tokens', totalMetric: '', weight: 1.2 },
-      { id: generateId(), type: 'Governance Participation', userMetric: '', unit: 'votes', totalMetric: '', weight: 0.8 },
-      { id: generateId(), type: 'Kaito Yaps', userMetric: '', unit: 'yaps', totalMetric: '', weight: 0.5 },
-      // { id: generateId(), type: 'Custom', userMetric: '', unit: '', totalMetric: '', weight: 1.0 } // Optionally start with a custom too
-  ];
-  const [activities, setActivities] = useState(defaultAdvancedActivities);
+  const [activities, setActivities] = useState(() => generateDefaultActivities());
 
   // --- Combined Calculation Logic (Conditional) ---
   const shareCalculations = useMemo(() => {
     if (isAdvancedMode) {
-        // --- Advanced Mode Calculation (Weighted Sum) ---
+        // --- Advanced Mode Calculation (Weighted Sum + Participant Dilution) ---
         let totalWeightedUserSum = 0;
         let totalWeightedProtocolSum = 0;
         let rawTotalProtocolActivities = 0;
@@ -193,16 +196,23 @@ function App() {
             breakdown[typeKey].weightedUser += weightedUser;
         });
 
-        const userShare = totalWeightedProtocolSum > 0 ? (totalWeightedUserSum / totalWeightedProtocolSum) : 0;
+        // 1. Calculate share based purely on weighted activity
+        const activityBasedShare = totalWeightedProtocolSum > 0 ? (totalWeightedUserSum / totalWeightedProtocolSum) : 0;
+
+        // 2. Dilute by the number of participants (handle division by zero)
+        const safeTotalParticipants = Math.max(1, totalParticipants || 1);
+        const userShare = activityBasedShare / safeTotalParticipants;
+
         const shareBreakdown = Object.entries(breakdown).map(([type, data]) => {
+            // Calculate contribution relative to the *activity pool* before participant division
             const directShareContribution = totalWeightedProtocolSum > 0 ? (data.weightedUser / totalWeightedProtocolSum) * 100 : 0;
             return { type, percentage: directShareContribution };
-        }).filter(item => item.percentage > 0.00001);
+        }).filter(item => item.percentage > 0.00001); // Filter out negligible contributions
 
         return {
             rawTotalProtocolActivities, // Display raw sum from advanced inputs
-            userShare, // Overall weighted share (0 to 1)
-            shareBreakdown, // Array of { type, percentage }
+            userShare: userShare, // Final diluted share (0 to 1)
+            shareBreakdown, // Array of { type, percentage } - based on activity pool
             mode: 'Advanced'
         };
 
@@ -222,7 +232,7 @@ function App() {
             mode: 'Basic'
         };
     }
-  }, [isAdvancedMode, activities, basicTotalActivities, basicUserActivityPercentage, basicActivityWeight]); // Dependencies for both modes
+  }, [isAdvancedMode, activities, totalParticipants, basicTotalActivities, basicUserActivityPercentage, basicActivityWeight]); // Dependencies for both modes
 
   // --- Value Estimation Calculations (Uses calculated share from either mode) ---
   const valueCalculations = useMemo(() => {
@@ -248,11 +258,12 @@ function App() {
        setBasicTotalActivities(1.5 * 1e6);
        setBasicUserActivityPercentage(0.01);
        setBasicActivityWeight(1.0);
-       // Reset advanced mode state (only activities array now)
-       setActivities(defaultAdvancedActivities); // Reset to default list
+       // Reset advanced mode state using the helper function to get fresh IDs
+       setActivities(generateDefaultActivities());
        // Reset common state
        setAirdropPercentage(7.5);
        setFdv(5 * 1e9);
+       setTotalParticipants(100000); // Reset total participants
    }, []); // No dependencies needed as it uses setters only
 
   return (
@@ -273,7 +284,7 @@ function App() {
          </div>
          {/* GitHub Link */}
          <a
-            href="https://github.com/nischal88/airdrop-visualizer"
+            href="https://github.com/nbelthan/Dropzone"
             target="_blank"
             rel="noopener noreferrer"
             className="text-gray-400 hover:text-white transition-colors"
@@ -376,11 +387,28 @@ function App() {
                       <div>
                           <ActivityInputTable activities={activities} setActivities={setActivities} />
                           
+                          {/* --- Participant Input (Advanced Mode Only) --- */}
+                          <div className="mt-4 pt-4 border-t border-gray-700">
+                              <SliderInput
+                                  label="Estimated Total Participants"
+                                  value={totalParticipants}
+                                  min={10000}       // Min: 10k
+                                  max={10000000}    // Max: 10 Million
+                                  step={1000} 
+                                  onChange={setTotalParticipants}
+                                  tooltipText="Estimated total number of unique wallets receiving the airdrop (10k to 10M). Used to dilute the calculated share in Advanced Mode only."
+                                  formatDisplayValue={formatLargeNumber}
+                              />
+                          </div>
+
                           {/* --- Formula Display --- */}
                           <div className="mt-4 pt-3 border-t border-gray-700/50">
-                              <h4 className="text-xs font-semibold text-gray-400 mb-1">Calculation Formula:</h4>
-                              <p className="text-xs text-gray-100 italic">
-                                  User Share = Sum (Your Metric × Weight) / Sum (Total Metric × Weight)
+                              <h4 className="text-xs font-semibold text-gray-400 mb-1">Calculation Formula (Advanced):</h4>
+                              <p className="text-xs text-gray-100 italic" title="Calculates your proportional share of the total weighted activity pool.">
+                                  Weighted Activity Share = Sum (Your Metric × Weight) / Sum (Total Metric × Weight)
+                              </p>
+                              <p className="text-xs text-gray-100 italic mt-1" title="Dilutes the activity share by the total participants, assuming an even split of the activity-based pool.">
+                                  Final User Share = Weighted Activity Share / Total Participants
                               </p>
                           </div>
                       </div>
@@ -404,11 +432,13 @@ function App() {
                        <p className="text-lg font-semibold text-white">{formatLargeNumber(shareCalculations.rawTotalProtocolActivities)}</p>
                    </div>
                    <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">
-                       <label className="text-xs text-gray-400 block mb-1" title="Your calculated share based on selected mode inputs.">Your Calculated Share ({shareCalculations.mode})</label>
+                       <label className="text-xs text-gray-400 block mb-1" title={shareCalculations.mode === 'Advanced' ? "Your calculated share of the total airdrop pool AFTER diluting your activity-based share by the total number of participants. Assumes the activity pool is split evenly among all participants." : "Your calculated share based on the basic slider inputs."}>
+                           Your Calculated Share ({shareCalculations.mode})
+                        </label>
                        <p className="text-lg font-semibold text-white">{(shareCalculations.userShare * 100).toFixed(6)}%</p>
                        {/* Share Breakdown Display (Only shows in Advanced mode) */}
                        {isAdvancedMode && shareCalculations.shareBreakdown.length > 0 && (
-                            <div className="mt-2 space-y-0.5 max-h-20 overflow-y-auto text-xs text-gray-400 pr-2">
+                           <div className="mt-2 space-y-0.5 text-xs text-gray-400 pr-2">
                                 <h4 className="text-xs font-semibold text-gray-300 mb-1">Share Contribution by Type:</h4>
                                 {shareCalculations.shareBreakdown.map(item => (
                                     <div key={item.type} className="flex justify-between">
