@@ -92,6 +92,7 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => { // Ad
            onClick={() => onDelete(activity.id)} 
            className="text-red-500 hover:text-red-400 md:col-span-1 justify-self-end" 
            title="Delete this activity row"
+           disabled={allActivities.length <= 1}
          >
             <XCircle size={16} />
         </button>
@@ -135,7 +136,7 @@ const ActivityInputTable = ({ activities, setActivities }) => {
                  ))}
              </div>
              <button onClick={addActivity} className="flex items-center text-sm text-blue-400 hover:text-blue-300">
-                 <PlusCircle size={16} className="mr-1" /> Add Activity Type
+                 <PlusCircle size={16} className="mr-1" /> Add Custom Activity Type
              </button>
          </div>
     );
@@ -170,6 +171,8 @@ function App() {
 
   // --- Combined Calculation Logic (Conditional) ---
   const shareCalculations = useMemo(() => {
+    const safeTotalParticipants = Math.max(1, totalParticipants || 1); // Calculate safe participants once
+
     if (isAdvancedMode) {
         // --- Advanced Mode Calculation (Weighted Sum + Participant Dilution) ---
         let totalWeightedUserSum = 0;
@@ -200,7 +203,6 @@ function App() {
         const activityBasedShare = totalWeightedProtocolSum > 0 ? (totalWeightedUserSum / totalWeightedProtocolSum) : 0;
 
         // 2. Dilute by the number of participants (handle division by zero)
-        const safeTotalParticipants = Math.max(1, totalParticipants || 1);
         const userShare = activityBasedShare / safeTotalParticipants;
 
         const shareBreakdown = Object.entries(breakdown).map(([type, data]) => {
@@ -217,18 +219,20 @@ function App() {
         };
 
     } else {
-        // --- Basic Mode Calculation (Sliders) ---
-        const safeTotalActivities = Math.max(basicTotalActivities, 1);
-        // Note: basicUserActivityPercentage is already a percentage (0.01 means 0.01%)
-        const userActivities = safeTotalActivities * (basicUserActivityPercentage / 100);
-        const cappedUserActivities = Math.min(userActivities, safeTotalActivities);
-        const baseShare = safeTotalActivities > 0 ? (cappedUserActivities / safeTotalActivities) : 0;
-        const userShare = Math.min(1, baseShare * basicActivityWeight);
+        // --- Basic Mode Calculation (Sliders + Participant Dilution) ---
+        const safeTotalActivities = Math.max(basicTotalActivities, 1); 
+        // Base share is simply the user's percentage of total activities
+        const baseShare = (basicUserActivityPercentage / 100); 
+        // Apply weight multiplier to the base share, capped at 1 (100%)
+        const weightedShare = Math.min(1, baseShare * basicActivityWeight); 
+        
+        // Dilute by the number of participants
+        const userShare = weightedShare / safeTotalParticipants; // Use safeTotalParticipants
 
         return {
-            rawTotalProtocolActivities: basicTotalActivities, // Display raw total from basic slider
-            userShare: userShare, // Calculated share (0 to 1)
-            shareBreakdown: [], // No breakdown in basic mode
+            rawTotalProtocolActivities: basicTotalActivities,
+            userShare: userShare, // Final diluted share
+            shareBreakdown: [],
             mode: 'Basic'
         };
     }
@@ -335,33 +339,49 @@ function App() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* --- Column 1: Setup (Conditional) --- */}
             <section className="lg:col-span-1 bg-gray-800/60 p-5 rounded-lg shadow-lg border border-gray-700/80 backdrop-blur-sm flex flex-col">
+              {/* Header Section */}
               <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-3">
                  <h2 className="text-lg font-semibold text-white">Projection Setup</h2>
-                 {/* --- MODE TOGGLE (Corrected Labels/Icons) --- */}
+                 {/* Mode Toggle Button */}
                  <button
                     onClick={() => setIsAdvancedMode(!isAdvancedMode)}
                     title={isAdvancedMode ? "Switch to Basic Mode (Sliders)" : "Switch to Advanced Mode (Table)"}
                     className={`flex items-center px-2 py-1 rounded text-xs transition-colors ${isAdvancedMode ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}
                  >
-                    {/* Show icon/text for the mode you WILL switch TO */}
                     {isAdvancedMode ? <Sliders size={14} className="mr-1"/> : <Settings2 size={14} className="mr-1"/>}
                     {isAdvancedMode ? 'Switch to Basic' : 'Switch to Advanced'}
                  </button>
               </div>
 
+              {/* Participant Slider - Moved Here (Common to both modes) */}
+              <div className="mb-4">
+                  <SliderInput
+                      label="Estimated Total Participants"
+                      value={totalParticipants}
+                      min={10000}       // Min: 10k
+                      max={10000000}    // Max: 10 Million
+                      step={1000} 
+                      onChange={setTotalParticipants}
+                      tooltipText="Estimated total number of unique wallets receiving the airdrop (10k to 10M). Used to dilute the calculated share in BOTH Basic and Advanced Modes."
+                      formatDisplayValue={formatLargeNumber}
+                  />
+              </div>
+
+              {/* Container for Mode-Specific Content */}
               <div className="flex-grow">
-                  {/* --- Basic Mode Inputs --- */}
+                  {/* --- Basic Mode Inputs & Formula --- */}
                   {!isAdvancedMode && (
                       <div className="space-y-4">
-                   <SliderInput
-                    label="Total Protocol Activities"
+                          {/* Basic Sliders */}
+                          <SliderInput
+                              label="Total Protocol Activities"
                               value={basicTotalActivities}
                               min={100000} max={100000000} step={10000}
                               onChange={setBasicTotalActivities}
-                              tooltipText="Estimated total eligible actions across all potential recipients."
-                    formatDisplayValue={formatLargeNumber}
-                  />
-                   <SliderInput
+                              tooltipText="Estimated total eligible actions across all potential recipients (used to calculate % share)."
+                              formatDisplayValue={formatLargeNumber}
+                          />
+                          <SliderInput
                               label="Your Share of Activities"
                               value={basicUserActivityPercentage}
                               min={0.0001} max={1.0} step={0.0001}
@@ -369,39 +389,37 @@ function App() {
                               unit="%"
                               tooltipText="Estimate your share of total activities as a percentage."
                               formatDisplayValue={(v) => v.toFixed(4)}
-                  />
-                   <SliderInput
-                    label="Activity Weight Multiplier"
+                          />
+                          <SliderInput
+                              label="Activity Weight Multiplier"
                               value={basicActivityWeight}
-                    min={0.5} max={3.0} step={0.1}
+                              min={0.5} max={3.0} step={0.1}
                               onChange={setBasicActivityWeight}
-                    unit="x"
-                              tooltipText="Multiplier based on activity type/value/timing (e.g., early user = 2x)."
-                    formatDisplayValue={(v) => v.toFixed(1)}
-                  />
+                              unit="x"
+                              tooltipText="Overall multiplier based on activity type/value/timing (e.g., early user = 2x)."
+                              formatDisplayValue={(v) => v.toFixed(1)}
+                          />
+
+                          {/* Basic Formula Display - Added Here */}
+                          <div className="mt-4 pt-3 border-t border-gray-700/50">
+                              <h4 className="text-xs font-semibold text-gray-400 mb-1">Calculation Formula (Basic):</h4>
+                              <p className="text-xs text-gray-100 italic" title="Combines your estimated share percentage with the weight multiplier.">
+                                  Weighted Share = (Your Share % / 100) * Activity Weight
+                              </p>
+                              <p className="text-xs text-gray-100 italic mt-1" title="Dilutes the weighted share by the total participants.">
+                                  Final User Share = Weighted Share / Total Participants
+                              </p>
+                          </div>
                       </div>
                   )}
 
-                  {/* --- Advanced Mode Inputs --- */}
+                  {/* --- Advanced Mode Inputs & Formula --- */}
                   {isAdvancedMode && (
                       <div>
+                          {/* Advanced Activity Table */}
                           <ActivityInputTable activities={activities} setActivities={setActivities} />
                           
-                          {/* --- Participant Input (Advanced Mode Only) --- */}
-                          <div className="mt-4 pt-4 border-t border-gray-700">
-                              <SliderInput
-                                  label="Estimated Total Participants"
-                                  value={totalParticipants}
-                                  min={10000}       // Min: 10k
-                                  max={10000000}    // Max: 10 Million
-                                  step={1000} 
-                                  onChange={setTotalParticipants}
-                                  tooltipText="Estimated total number of unique wallets receiving the airdrop (10k to 10M). Used to dilute the calculated share in Advanced Mode only."
-                                  formatDisplayValue={formatLargeNumber}
-                              />
-                          </div>
-
-                          {/* --- Formula Display --- */}
+                          {/* Advanced Formula Display */}
                           <div className="mt-4 pt-3 border-t border-gray-700/50">
                               <h4 className="text-xs font-semibold text-gray-400 mb-1">Calculation Formula (Advanced):</h4>
                               <p className="text-xs text-gray-100 italic" title="Calculates your proportional share of the total weighted activity pool.">
@@ -415,7 +433,7 @@ function App() {
                   )}
                </div>
 
-               {/* Reset Button (Pushed to bottom) */}
+               {/* Reset Button */}
                <div className="mt-8 pt-4 border-t border-gray-700 text-center">
                     <button onClick={handleReset} className="text-sm text-gray-400 hover:text-red-400 transition-colors">Reset All Inputs</button>
                </div>
@@ -432,7 +450,7 @@ function App() {
                        <p className="text-lg font-semibold text-white">{formatLargeNumber(shareCalculations.rawTotalProtocolActivities)}</p>
                    </div>
                    <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">
-                       <label className="text-xs text-gray-400 block mb-1" title={shareCalculations.mode === 'Advanced' ? "Your calculated share of the total airdrop pool AFTER diluting your activity-based share by the total number of participants. Assumes the activity pool is split evenly among all participants." : "Your calculated share based on the basic slider inputs."}>
+                       <label className="text-xs text-gray-400 block mb-1" title={shareCalculations.mode === 'Advanced' ? "Your calculated share AFTER diluting your activity-based share by the total number of participants. Assumes the activity pool is split evenly." : "Your calculated share AFTER diluting your slider-based share by the total number of participants."} >
                            Your Calculated Share ({shareCalculations.mode})
                         </label>
                        <p className="text-lg font-semibold text-white">{(shareCalculations.userShare * 100).toFixed(6)}%</p>
