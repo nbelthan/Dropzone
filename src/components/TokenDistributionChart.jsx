@@ -61,7 +61,6 @@ const TokenDistributionChart = ({ airdropPercentage }) => {
 
   return (
     <div className="relative w-full min-h-[280px] flex flex-col items-center">
-      <p className='text-red-500 font-bold'>RENDERING VISX PIE CHART</p>
       <svg width={width} height={height}>
          {/* Optional: Add Drop Shadow Filter Definition */}
          <defs>
