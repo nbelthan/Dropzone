@@ -163,6 +163,7 @@ function App() {
 
   // --- State for Basic Mode --- <<< REINTRODUCED
   const [basicTotalActivities, setBasicTotalActivities] = useState(1.5 * 1e6); // 100K - 100M
+  const [basicUserActivityPercentage, setBasicUserActivityPercentage] = useState(0.01); // 0.0001% to 1%
   const [basicActivityWeight, setBasicActivityWeight] = useState(1.0); // 0.5x - 3x
 
   // --- State for Advanced Mode --- (Activities Array Only)
@@ -170,7 +171,7 @@ function App() {
 
   // --- Combined Calculation Logic (Conditional) ---
   const shareCalculations = useMemo(() => {
-    const safeTotalParticipants = Math.max(1, totalParticipants || 1);
+    const safeTotalParticipants = Math.max(1, totalParticipants || 1); // Calculate safe participants once
 
     if (isAdvancedMode) {
         // --- Advanced Mode Calculation (Weighted Sum + Participant Dilution) ---
@@ -218,14 +219,15 @@ function App() {
         };
 
     } else {
-        // --- Basic Mode Calculation (Revised) ---
-        const safeTotalActivities = Math.max(1, basicTotalActivities || 1); // Ensure > 0
-        // Calculate base share assuming user is 1 unit relative to total activities
-        const baseShare = 1 / safeTotalActivities;
-        // Apply weight multiplier
-        const weightedShare = baseShare * basicActivityWeight; 
+        // --- Basic Mode Calculation (Sliders + Participant Dilution) ---
+        const safeTotalActivities = Math.max(basicTotalActivities, 1); 
+        // Base share is simply the user's percentage of total activities
+        const baseShare = (basicUserActivityPercentage / 100); 
+        // Apply weight multiplier to the base share, capped at 1 (100%)
+        const weightedShare = Math.min(1, baseShare * basicActivityWeight); 
+        
         // Dilute by the number of participants
-        const userShare = weightedShare / safeTotalParticipants;
+        const userShare = weightedShare / safeTotalParticipants; // Use safeTotalParticipants
 
         return {
             rawTotalProtocolActivities: basicTotalActivities,
@@ -234,7 +236,7 @@ function App() {
             mode: 'Basic'
         };
     }
-  }, [isAdvancedMode, activities, totalParticipants, basicTotalActivities, basicActivityWeight]); // Dependencies for both modes
+  }, [isAdvancedMode, activities, totalParticipants, basicTotalActivities, basicUserActivityPercentage, basicActivityWeight]); // Dependencies for both modes
 
   // --- Value Estimation Calculations (Uses calculated share from either mode) ---
   const valueCalculations = useMemo(() => {
@@ -255,13 +257,17 @@ function App() {
 
   // --- Reset Function (Resets both modes and mode itself) ---
    const handleReset = useCallback(() => {
-       setIsAdvancedMode(false);
+       setIsAdvancedMode(false); // Reset to basic mode
+       // Reset basic mode state
        setBasicTotalActivities(1.5 * 1e6);
+       setBasicUserActivityPercentage(0.01);
        setBasicActivityWeight(1.0);
+       // Reset advanced mode state using the helper function to get fresh IDs
        setActivities(generateDefaultActivities());
+       // Reset common state
        setAirdropPercentage(7.5);
        setFdv(5 * 1e9);
-       setTotalParticipants(100000);
+       setTotalParticipants(100000); // Reset total participants
    }, []); // No dependencies needed as it uses setters only
 
   return (
@@ -372,8 +378,17 @@ function App() {
                               value={basicTotalActivities}
                               min={100000} max={100000000} step={10000}
                               onChange={setBasicTotalActivities}
-                              tooltipText="Estimated total eligible actions across all potential recipients. Your base share is calculated as 1 / this number."
+                              tooltipText="Estimated total eligible actions across all potential recipients (used to calculate % share)."
                               formatDisplayValue={formatLargeNumber}
+                          />
+                          <SliderInput
+                              label="Your Share of Activities"
+                              value={basicUserActivityPercentage}
+                              min={0.0001} max={1.0} step={0.0001}
+                              onChange={setBasicUserActivityPercentage}
+                              unit="%"
+                              tooltipText="Estimate your share of total activities as a percentage."
+                              formatDisplayValue={(v) => v.toFixed(4)}
                           />
                           <SliderInput
                               label="Activity Weight Multiplier"
@@ -381,18 +396,15 @@ function App() {
                               min={0.5} max={3.0} step={0.1}
                               onChange={setBasicActivityWeight}
                               unit="x"
-                              tooltipText="Overall multiplier applied to your base share (e.g., early user = 2x)."
+                              tooltipText="Overall multiplier based on activity type/value/timing (e.g., early user = 2x)."
                               formatDisplayValue={(v) => v.toFixed(1)}
                           />
 
-                          {/* Basic Formula Display - Updated */}
+                          {/* Basic Formula Display - Added Here */}
                           <div className="mt-4 pt-3 border-t border-gray-700/50">
                               <h4 className="text-xs font-semibold text-gray-400 mb-1">Calculation Formula (Basic):</h4>
-                              <p className="text-xs text-gray-100 italic" title="Your assumed share before weighting and participant dilution.">
-                                  Base Share = 1 / Total Protocol Activities
-                              </p>
-                              <p className="text-xs text-gray-100 italic mt-1" title="Applies the overall weight multiplier to your base share.">
-                                  Weighted Share = Base Share * Activity Weight
+                              <p className="text-xs text-gray-100 italic" title="Combines your estimated share percentage with the weight multiplier.">
+                                  Weighted Share = (Your Share % / 100) * Activity Weight
                               </p>
                               <p className="text-xs text-gray-100 italic mt-1" title="Dilutes the weighted share by the total participants.">
                                   Final User Share = Weighted Share / Total Participants
