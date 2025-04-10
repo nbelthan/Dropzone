@@ -12,26 +12,6 @@ import logo from './assets/logo.png'; // Import the logo
 let nextId = 0;
 const generateId = () => nextId++;
 
-// --- Placeholder Components (Styling improved in ActivityRow) ---
-const ProtocolSelector = ({ name, setName }) => (
-    <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-300 mb-1">Protocol Name (Optional)</label>
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., NewLayer1" className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500"/>
-    </div>
-);
-const TimePeriodSelector = ({ startDate, setStartDate, endDate, setEndDate }) => (
-     <div className="grid grid-cols-2 gap-4 mb-4">
-        <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Activity Start Date</label>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:ring-blue-500 focus:border-blue-500"/>
-        </div>
-        <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Activity End Date</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:ring-blue-500 focus:border-blue-500"/>
-        </div>
-     </div>
-);
-
 // ActivityRow: Improved styling, duplicate prevention, layout
 const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => { // Added allActivities prop
     const activityTypes = ["Transactions", "Liquidity Provision", "Staking", "Governance Participation", "Kaito Yaps", "Custom"]; // Renamed K2 Jabs
@@ -52,7 +32,7 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => { // Ad
             value={activity.type} 
             onChange={e => onChange(activity.id, 'type', e.target.value)} 
             className={`${selectClasses} md:col-span-2`}
-            title="Select the type of activity"
+            title="Select the type of activity (e.g., Transactions, Staking)"
         >
             {activityTypes.map(type => (
                 <option 
@@ -68,7 +48,7 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => { // Ad
         <input 
            type="number" 
            placeholder="Your Amount" 
-           title="Your number/value for this activity type (e.g., 100)" 
+           title="Your personal number/value for this activity type (e.g., 100 transactions, 500 tokens staked)"
            className={`${inputClasses} md:col-span-2`} 
            value={activity.userMetric} 
            min="0" 
@@ -78,7 +58,7 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => { // Ad
         <input 
            type="text" 
            placeholder="Unit" 
-           title="Unit for metrics (e.g., tx, USD, tokens)" 
+           title="Unit of measurement for metrics (e.g., tx, USD, tokens, points)"
            className={`${inputClasses} md:col-span-1`} 
            value={activity.unit} 
            onChange={e => onChange(activity.id, 'unit', e.target.value)}
@@ -87,7 +67,7 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => { // Ad
         <input 
            type="number" 
            placeholder="Protocol Total" 
-           title="Estimated total metric for the entire protocol (e.g., 1,000,000)" 
+           title="Estimated total amount/value for this activity across the entire protocol (e.g., 1,000,000 total transactions)"
            className={`${inputClasses} md:col-span-2`} 
            value={activity.totalMetric} 
            min="0" 
@@ -97,7 +77,7 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => { // Ad
         <input 
            type="number" 
            placeholder="Wt." 
-           title="Weight/Importance (e.g., 1.0)" 
+           title="Relative importance multiplier for this activity type (e.g., 1.0 = standard, 2.0 = double weight)"
            className={`${inputClasses} md:col-span-1`} 
            value={activity.weight} 
            step="0.1" 
@@ -108,7 +88,7 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => { // Ad
         <button 
            onClick={() => onDelete(activity.id)} 
            className="text-red-500 hover:text-red-400 md:col-span-1 justify-self-end" 
-           title="Delete Activity Row"
+           title="Delete this activity row"
          >
             <XCircle size={16} />
         </button>
@@ -131,14 +111,14 @@ const ActivityInputTable = ({ activities, setActivities }) => {
              <h3 className="text-md font-semibold text-gray-200 mb-2">Define Activities & Weights</h3>
              {/* Header Row with Tooltips */}
              <div className="hidden md:grid md:grid-cols-9 gap-2 items-center mb-1 px-2 text-xs text-gray-400 font-medium">
-                 <span className="md:col-span-2" title="Category of on-chain action">Type</span>
-                 <span className="md:col-span-2" title="Your personal amount for this activity type">Your Metric</span>
-                 <span className="md:col-span-1" title="Unit of measurement (e.g., tx, USD)">Unit</span>
-                 <span className="md:col-span-2" title="Estimated total amount for the entire protocol">Total Metric</span>
-                 <span className="md:col-span-1" title="Relative importance multiplier">Weight</span>
+                 <span className="md:col-span-2" title="Category of on-chain action (e.g., Transactions, Staking)">Type</span>
+                 <span className="md:col-span-2" title="Your personal amount/value for this activity type">Your Metric</span>
+                 <span className="md:col-span-1" title="Unit of measurement (e.g., tx, USD, tokens)">Unit</span>
+                 <span className="md:col-span-2" title="Estimated total amount/value for this activity across the entire protocol">Total Metric</span>
+                 <span className="md:col-span-1" title="Relative importance multiplier (higher means more impact)">Weight</span>
                  <span className="md:col-span-1 text-right">Action</span>
              </div>
-             <div className="space-y-1 mb-3 max-h-60 overflow-y-auto pr-1 border-t border-b border-gray-700 py-2">
+             <div className="space-y-1 mb-3 pr-1 border-t border-b border-gray-700 py-2">
                  {activities.length === 0 && <p className="text-sm text-gray-500 text-center py-4">Add activities to start calculation.</p>}
                  {activities.map(act => (
                      <ActivityRow 
@@ -156,7 +136,6 @@ const ActivityInputTable = ({ activities, setActivities }) => {
          </div>
     );
 };
-// --- End Placeholders ---
 
 function App() {
   const [activeTab, setActiveTab] = useState('protocol');
@@ -171,10 +150,7 @@ function App() {
   const [basicUserActivityPercentage, setBasicUserActivityPercentage] = useState(0.01); // 0.0001% to 1%
   const [basicActivityWeight, setBasicActivityWeight] = useState(1.0); // 0.5x - 3x
 
-  // --- State for Advanced Mode --- (Protocol Info + Activities Array)
-  const [protocolName, setProtocolName] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // --- State for Advanced Mode --- (Activities Array Only)
   const [activities, setActivities] = useState([ // Start with one default row for advanced
      { id: generateId(), type: 'Transactions', userMetric: '', unit: 'tx', totalMetric: '', weight: 1.0 }
   ]);
@@ -262,10 +238,7 @@ function App() {
        setBasicTotalActivities(1.5 * 1e6);
        setBasicUserActivityPercentage(0.01);
        setBasicActivityWeight(1.0);
-       // Reset advanced mode state
-       setProtocolName('');
-       setStartDate('');
-       setEndDate('');
+       // Reset advanced mode state (only activities array now)
        setActivities([{ id: generateId(), type: 'Transactions', userMetric: '', unit: 'tx', totalMetric: '', weight: 1.0 }]);
        // Reset common state
        setAirdropPercentage(7.5);
@@ -391,8 +364,6 @@ function App() {
                   {/* --- Advanced Mode Inputs --- */}
                   {isAdvancedMode && (
                       <div>
-                          <ProtocolSelector name={protocolName} setName={setProtocolName} />
-                          <TimePeriodSelector startDate={startDate} setStartDate={setStartDate} endDate={endDate} setEndDate={setEndDate} />
                           <ActivityInputTable activities={activities} setActivities={setActivities} />
                           
                           {/* --- Formula Display --- */}
