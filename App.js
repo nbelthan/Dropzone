@@ -9,7 +9,7 @@ const generateId = () => nextId++;
 // --- Placeholder Components ---
 // Remove ProtocolSelector and TimePeriodSelector definitions
 
-// ActivityRow: (Ensure tooltips are descriptive)
+// ActivityRow: Improved styling, duplicate prevention, layout, clearer tooltips
 const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => {
     const activityTypes = ["Transactions", "Liquidity Provision", "Staking", "Governance Participation", "Kaito Yaps", "Custom"];
     const inputClasses = "w-full text-xs bg-gray-600 border border-gray-500 rounded p-1.5 text-gray-100 placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 focus:bg-gray-500";
@@ -20,27 +20,32 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => {
         [allActivities, activity.id]
     );
 
+    // Only allow changing type for 'Custom' type rows
+    const isTypeChangeDisabled = activity.type !== 'Custom';
+
     return (
+    // Adjusted grid columns for better fit: 9 total spans
     <div className="grid grid-cols-1 md:grid-cols-9 gap-2 items-center mb-1 p-2 border border-gray-700 rounded bg-gray-900/30">
+        {/* Type Dropdown (col-span-2) */}
         <select
             value={activity.type}
             onChange={e => onChange(activity.id, 'type', e.target.value)}
             className={`${selectClasses} md:col-span-2`}
-            title="Select the type of activity. Each type can only be used once (except 'Custom')."
-            // Disable type change for non-custom rows if desired? Or just disable used options?
-            // disabled={activity.type !== 'Custom'} // Example: Lock predefined types?
+            title="Select the type of activity. Predefined types can only be used once."
+            disabled={isTypeChangeDisabled} // Disable changing type for predefined rows
         >
             {activityTypes.map(type => (
                 <option
                     key={type}
                     value={type}
-                    // Disable selection if type is already used by another row, unless it's 'Custom'
-                    disabled={type !== 'Custom' && usedTypesInOtherRows.has(type)}
+                    // Disable selection if type is already used by another row, unless it's the current row's type or 'Custom'
+                    disabled={type !== 'Custom' && type !== activity.type && usedTypesInOtherRows.has(type)}
                 >
                     {type}
                 </option>
             ))}
         </select>
+        {/* Your Metric Input (col-span-2) */}
         <input
            type="number"
            placeholder="Your Amount"
@@ -50,6 +55,7 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => {
            min="0"
            onChange={e => onChange(activity.id, 'userMetric', e.target.value)}
          />
+        {/* Unit Input (col-span-1) */}
         <input
            type="text"
            placeholder="Unit"
@@ -58,6 +64,7 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => {
            value={activity.unit}
            onChange={e => onChange(activity.id, 'unit', e.target.value)}
          />
+        {/* Total Metric Input (col-span-2) */}
         <input
            type="number"
            placeholder="Protocol Total"
@@ -67,16 +74,18 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => {
            min="0"
            onChange={e => onChange(activity.id, 'totalMetric', e.target.value)}
          />
+        {/* Weight Input (col-span-1) */}
         <input
            type="number"
            placeholder="Wt."
-           title="Weight multiplier reflecting the importance of this activity type (e.g., 1.0 for standard, 2.0 for high importance)"
+           title="Weight multiplier reflecting the importance of this activity type (e.g., 1.0 for standard, 2.0 for high importance, >=0)"
            className={`${inputClasses} md:col-span-1`}
            value={activity.weight}
            step="0.1"
            min="0"
            onChange={e => onChange(activity.id, 'weight', e.target.value)}
          />
+        {/* Delete Button (col-span-1) */}
         <button
            onClick={() => onDelete(activity.id)}
            className="text-red-500 hover:text-red-400 md:col-span-1 justify-self-end"
@@ -87,7 +96,7 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => {
     </div>
 )};
 
-// ActivityInputTable: Modified addActivity function
+// ActivityInputTable: Modified addActivity function, clearer headers
 const ActivityInputTable = ({ activities, setActivities }) => {
      // Modify addActivity to only add 'Custom' type
      const addActivity = useCallback(() => {
@@ -108,9 +117,9 @@ const ActivityInputTable = ({ activities, setActivities }) => {
              {/* Header Row with Tooltips (ensure titles are clear) */}
              <div className="hidden md:grid md:grid-cols-9 gap-2 items-center mb-1 px-2 text-xs text-gray-400 font-medium">
                  <span className="md:col-span-2" title="Category of on-chain action">Type</span>
-                 <span className="md:col-span-2" title="Your personal amount for this activity type">Your Metric</span>
-                 <span className="md:col-span-1" title="Unit of measurement (e.g., tx, USD)">Unit</span>
-                 <span className="md:col-span-2" title="Estimated total amount for the entire protocol">Total Metric</span>
+                 <span className="md:col-span-2" title="Your personal amount for this activity type (e.g., number of transactions, USD value of LP)">Your Metric</span>
+                 <span className="md:col-span-1" title="Unit of measurement for 'Your Metric' and 'Total Metric' (e.g., tx, USD, ETH)">Unit</span>
+                 <span className="md:col-span-2" title="Estimated total amount for this activity across the entire protocol">Total Metric</span>
                  <span className="md:col-span-1" title="Relative importance multiplier (>=0)">Weight</span>
                  <span className="md:col-span-1 text-right">Action</span>
              </div>

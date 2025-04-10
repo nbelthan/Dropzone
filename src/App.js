@@ -497,7 +497,7 @@ function App() {
         )}
       </main>
          {/* Footer */}
-         <footer className="text-center mt-12 text-xs text-gray-500">
+         <footer className="text-center mt-12 text-xs text-white">
             <p>Simulations based on user inputs. Not financial advice. DYOR.</p>
             <p>Current Time (Local): {currentTime.toLocaleString()}</p>
          </footer>
