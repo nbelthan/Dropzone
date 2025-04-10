@@ -18,9 +18,11 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => { // Ad
     const inputClasses = "w-full text-xs bg-gray-600 border border-gray-500 rounded p-1.5 text-gray-100 placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 focus:bg-gray-500";
     const selectClasses = "w-full text-xs bg-gray-600 border border-gray-500 rounded p-1.5 text-gray-100 focus:ring-blue-500 focus:border-blue-500 focus:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed";
 
-    // Determine which types are used by *other* activities
-    const usedTypesInOtherRows = useMemo(() => 
-        new Set(allActivities.filter(a => a.id !== activity.id).map(a => a.type)),
+    // Determine which non-'Custom' types are used by *other* activities
+    const usedPredefinedTypesInOtherRows = useMemo(() => 
+        new Set(allActivities
+            .filter(a => a.id !== activity.id && a.type !== 'Custom') // Exclude self and 'Custom' type
+            .map(a => a.type)),
         [allActivities, activity.id]
     );
 
@@ -38,7 +40,8 @@ const ActivityRow = ({ activity, onChange, onDelete, allActivities }) => { // Ad
                 <option 
                     key={type} 
                     value={type} 
-                    disabled={usedTypesInOtherRows.has(type)} // Disable if used in another row
+                    // Disable if it's a predefined type used in another row
+                    disabled={type !== 'Custom' && usedPredefinedTypesInOtherRows.has(type)}
                 >
                     {type}
                 </option>
@@ -103,7 +106,8 @@ const ActivityInputTable = ({ activities, setActivities }) => {
          setActivities(prev => prev.map(act => act.id === id ? { ...act, [field]: value } : act));
      }, [setActivities]);
      const deleteActivity = useCallback((id) => {
-         setActivities(prev => prev.filter(act => act.id !== id));
+         // Prevent deleting the last activity row
+         setActivities(prev => (prev.length > 1 ? prev.filter(act => act.id !== id) : prev));
      }, [setActivities]);
 
     return (
@@ -119,7 +123,7 @@ const ActivityInputTable = ({ activities, setActivities }) => {
                  <span className="md:col-span-1 text-right">Action</span>
              </div>
              <div className="space-y-1 mb-3 pr-1 border-t border-b border-gray-700 py-2">
-                 {activities.length === 0 && <p className="text-sm text-gray-500 text-center py-4">Add activities to start calculation.</p>}
+                 {activities.length === 0 && <p className="text-sm text-gray-500 text-center py-4">Please add at least one activity.</p>}
                  {activities.map(act => (
                      <ActivityRow 
                          key={act.id} 
@@ -151,9 +155,15 @@ function App() {
   const [basicActivityWeight, setBasicActivityWeight] = useState(1.0); // 0.5x - 3x
 
   // --- State for Advanced Mode --- (Activities Array Only)
-  const [activities, setActivities] = useState([ // Start with one default row for advanced
-     { id: generateId(), type: 'Transactions', userMetric: '', unit: 'tx', totalMetric: '', weight: 1.0 }
-  ]);
+  const defaultAdvancedActivities = [
+      { id: generateId(), type: 'Transactions', userMetric: '', unit: 'tx', totalMetric: '', weight: 1.0 },
+      { id: generateId(), type: 'Liquidity Provision', userMetric: '', unit: 'USD', totalMetric: '', weight: 1.5 },
+      { id: generateId(), type: 'Staking', userMetric: '', unit: 'tokens', totalMetric: '', weight: 1.2 },
+      { id: generateId(), type: 'Governance Participation', userMetric: '', unit: 'votes', totalMetric: '', weight: 0.8 },
+      { id: generateId(), type: 'Kaito Yaps', userMetric: '', unit: 'yaps', totalMetric: '', weight: 0.5 },
+      // { id: generateId(), type: 'Custom', userMetric: '', unit: '', totalMetric: '', weight: 1.0 } // Optionally start with a custom too
+  ];
+  const [activities, setActivities] = useState(defaultAdvancedActivities);
 
   // --- Combined Calculation Logic (Conditional) ---
   const shareCalculations = useMemo(() => {
@@ -239,7 +249,7 @@ function App() {
        setBasicUserActivityPercentage(0.01);
        setBasicActivityWeight(1.0);
        // Reset advanced mode state (only activities array now)
-       setActivities([{ id: generateId(), type: 'Transactions', userMetric: '', unit: 'tx', totalMetric: '', weight: 1.0 }]);
+       setActivities(defaultAdvancedActivities); // Reset to default list
        // Reset common state
        setAirdropPercentage(7.5);
        setFdv(5 * 1e9);
@@ -369,7 +379,7 @@ function App() {
                           {/* --- Formula Display --- */}
                           <div className="mt-4 pt-3 border-t border-gray-700/50">
                               <h4 className="text-xs font-semibold text-gray-400 mb-1">Calculation Formula:</h4>
-                              <p className="text-xs text-gray-500 italic">
+                              <p className="text-xs text-gray-100 italic">
                                   User Share = Sum (Your Metric × Weight) / Sum (Total Metric × Weight)
                               </p>
                           </div>
