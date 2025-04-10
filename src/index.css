@@ -1,0 +1,31 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Add any base styles here */
+body {
+  @apply bg-gradient-to-br from-gray-900 via-gray-800 to-black text-gray-100 min-h-screen font-sans;
+}
+
+/* Custom scrollbar (optional, Webkit only) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px; /* Added for horizontal scrollbar */
+}
+::-webkit-scrollbar-track {
+  background: #1f2937; /* gray-800 */
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: #4a5568; /* gray-600 */
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #718096; /* gray-500 */
+}
+
+/* Ensure tooltips appear above other elements */
+.group:hover .group-hover\:opacity-100 {
+    z-index: 50;
+}
